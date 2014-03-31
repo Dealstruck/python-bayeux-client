@@ -1,9 +1,10 @@
 import bayeux_constants
 import logging
+from cookielib import CookieJar
 
 from twisted.internet import defer, reactor
 from twisted.internet.defer import succeed
-from twisted.web.client import Agent, HTTPConnectionPool
+from twisted.web.client import Agent, CookieAgent, HTTPConnectionPool
 from twisted.web.http_headers import Headers
 from twisted.web.iweb import IBodyProducer
 from zope.interface import implements
@@ -20,15 +21,18 @@ class BayeuxMessageSender(object):
         server: The bayeux server to send messages to
         receiver: The message receiver
     """
-    def __init__(self, server, receiver):
+    def __init__(self, server, receiver, extra_headers=None):
         """Initialize the message sender.
 
         Args:
             server: The bayeux server to send messages to
             receiver: The message receiver to pass the responses to
         """
-        self.agent = Agent(reactor, pool=HTTPConnectionPool(reactor))
+        self.cookie_jar = CookieJar()
+        self.agent = CookieAgent(Agent(reactor, pool=HTTPConnectionPool(reactor)), self.cookie_jar)
+        self.extra_headers = extra_headers
         self.client_id = -1 #Will be set upon receipt of the handshake response
+
         self.msg_id = 0
         self.server = server
         self.receiver = receiver
@@ -40,7 +44,7 @@ class BayeuxMessageSender(object):
             errback: Optional callback issued if there is an error
                      during sending.
         """
-        message = 'message={{"channel":"{0}","clientId":"{1}","id":"{2}",\
+        message = '{{"channel":"{0}","clientId":"{1}","id":"{2}",\
             "connectionType":"long-polling"}}'.format(
                 bayeux_constants.CONNECT_CHANNEL,
                 self.client_id,
@@ -55,7 +59,7 @@ class BayeuxMessageSender(object):
             errback: Optional callback issued if there is an error
                 during sending.
         """
-        message = 'message={{"channel":"{0}","clientId":"{1}","id":"{2}"}}'.format(
+        message = '{{"channel":"{0}","clientId":"{1}","id":"{2}"}}'.format(
             bayeux_constants.DISCONNECT_CHANNEL,
             self.client_id,
             self.get_next_id())
@@ -78,9 +82,9 @@ class BayeuxMessageSender(object):
             errback: Optional callback issued if there is an error
                 during sending.
         """
-        message = '''message={{"channel":"{0}","id":"{1}",
-            "supportedConnectionTypes":["callback-polling", "long-polling"],
-            "version":"1.0","minimumVersion":"1.0"}}'''.format(
+        message = '''[{{"channel":"{0}","id":"{1}",
+            "supportedConnectionTypes":["long-polling"],
+            "version":"1.0","minimumVersion":"1.0"}}]'''.format(
                 bayeux_constants.HANDSHAKE_CHANNEL,
                 self.get_next_id())
         logging.debug('handshake: %s' % message)
@@ -95,11 +99,19 @@ class BayeuxMessageSender(object):
                 during sending.
         """
         def do_send():
+            headers = {
+                'Content-Type': ['application/json']
+            }
+            if self.extra_headers:
+                headers.update(self.extra_headers)
+
+            logging.debug("Request Headers: %s", headers)
+
             d = self.agent.request('POST',
-                self.server,
-                Headers({'Content-Type': ['application/x-www-form-urlencoded'],
-                    'Host': [self.server]}),
-                BayeuxProducer(str(message)))
+                    self.server,
+                    Headers(headers),
+                    BayeuxProducer(str(message))
+                )
 
             def cb(response):
                 response.deliverBody(self.receiver)
@@ -138,7 +150,7 @@ class BayeuxMessageSender(object):
             errback: Optional callback issued if there is an error
                 during sending
         """
-        message = 'message={{"channel":"{0}","clientId":"{1}","id":"{2}",\
+        message = '{{"channel":"{0}","clientId":"{1}","id":"{2}",\
             "subscription":"{3}"}}'.format(
                 bayeux_constants.SUBSCRIBE_CHANNEL,
                 self.client_id, self.get_next_id(), subscription)
@@ -153,7 +165,7 @@ class BayeuxMessageSender(object):
             errback: Optional callback issued if there is an error
                 during sending
         """
-        message = 'message={{"channel":"{0}","clientId":"{1}","id":"{2}",\
+        message = '{{"channel":"{0}","clientId":"{1}","id":"{2}",\
             "subscriptions":"{3}"}}'.format(
                 bayeux_constants.UNSUBSCRIBE_CHANNEL,
                 self.clientId, self.get_next_id(), subscriptions)
