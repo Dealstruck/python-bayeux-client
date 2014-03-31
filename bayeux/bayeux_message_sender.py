@@ -37,7 +37,7 @@ class BayeuxMessageSender(object):
         """Sends a connect request message to the server
 
         Args:
-            errback: Optional callback issued if there is an error 
+            errback: Optional callback issued if there is an error
                      during sending.
         """
         message = 'message={{"channel":"{0}","clientId":"{1}","id":"{2}",\
@@ -50,15 +50,15 @@ class BayeuxMessageSender(object):
 
     def disconnect(self, errback=None):
         """Sends a disconnect request message to the server.
-    
+
         Args:
-            errback: Optional callback issued if there is an error 
+            errback: Optional callback issued if there is an error
                 during sending.
         """
         message = 'message={{"channel":"{0}","clientId":"{1}","id":"{2}"}}'.format(
             bayeux_constants.DISCONNECT_CHANNEL,
             self.client_id,
-            self.get_next_id())        
+            self.get_next_id())
         logging.debug('disconnect: %s' % message)
         self.send_message(message, errback)
 
@@ -88,10 +88,10 @@ class BayeuxMessageSender(object):
 
     def send_message(self, message, errback=None):
         """Helper method to send a message.
-        
+
         Args:
             message: The message to send
-            errback: Optional callback issued if there is an error 
+            errback: Optional callback issued if there is an error
                 during sending.
         """
         def do_send():
@@ -104,14 +104,14 @@ class BayeuxMessageSender(object):
             def cb(response):
                 response.deliverBody(self.receiver)
                 return d
-            
+
             def error(reason):
                 logging.error('Error sending msg: %s' % reason)
-                logging.error(reason.getErrorMessage())                
+                logging.error(reason.getErrorMessage())
                 #logging.debug(reason.value.reasons[0].printTraceback())
                 if errback is not None:
                     errback(reason)
-            
+
             d.addCallback(cb)
             d.addErrback(error)
         #Make sure that our send happens on the reactor thread
@@ -120,43 +120,43 @@ class BayeuxMessageSender(object):
     def set_client_id(self, client_id):
         """Sets the client id to use for request messages that are sent.
 
-        The client id is embedded in  all request messages sent by the 
-        client to the server. This must be set prior to sending any request 
-        other than a handshake request. The client id is returned by the server 
+        The client id is embedded in  all request messages sent by the
+        client to the server. This must be set prior to sending any request
+        other than a handshake request. The client id is returned by the server
         in response to a handshake request.
 
         Args:
             client_id: The client id to use when sending requests to the server
         """
         self.client_id = client_id
-    
+
     def subscribe(self, subscription, errback=None):
         """Sends a subscribe request to the server.
-    
+
         Args:
             subscription: The subscription path (e.g. '/foo/bar')
-            errback: Optional callback issued if there is an error 
+            errback: Optional callback issued if there is an error
                 during sending
         """
         message = 'message={{"channel":"{0}","clientId":"{1}","id":"{2}",\
             "subscription":"{3}"}}'.format(
                 bayeux_constants.SUBSCRIBE_CHANNEL,
                 self.client_id, self.get_next_id(), subscription)
-        logging.debug('subscribe: %s' % message)        
+        logging.debug('subscribe: %s' % message)
         self.send_message(message, errback)
 
     def unsubscribe(self, subscription, errback=None):
         """Sends an unsubscribe request to the server.
-    
+
         Args:
             subscription: The subscription path (e.g. '/foo/bar')
-            errback: Optional callback issued if there is an error 
+            errback: Optional callback issued if there is an error
                 during sending
         """
         message = 'message={{"channel":"{0}","clientId":"{1}","id":"{2}",\
             "subscriptions":"{3}"}}'.format(
                 bayeux_constants.UNSUBSCRIBE_CHANNEL,
-                self.clientId, self.get_next_id(), subscriptions)        
+                self.clientId, self.get_next_id(), subscriptions)
         logging.debug('unsubscribe: %s' % message)
         self.send_message(message, errback)
 
@@ -170,7 +170,7 @@ class BayeuxProducer(object):
     """
     def __init__(self, body):
         """Initialize the BayeuxProducer
-        
+
         Args:
             body: The data to send
         """
@@ -186,12 +186,11 @@ class BayeuxProducer(object):
         """
         consumer.write(self.body)
         return succeed(None)
-    
+
     def pauseProducing(self):
         """No Op"""
         pass
-        
+
     def stopProducing(self):
         """No Op"""
         pass
-        
