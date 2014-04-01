@@ -42,9 +42,9 @@ class BayeuxMessageReceiver(Protocol):
 
     def dataReceived(self, data):
         """Called when data is received from the bayeux server.
-    
-        This is called by the Twisted protocol classes when 
-        data is received from the server. This can potentially be called 
+
+        This is called by the Twisted protocol classes when
+        data is received from the server. This can potentially be called
         multiple times per message so buffer up the data.
 
         Args:
@@ -56,22 +56,20 @@ class BayeuxMessageReceiver(Protocol):
     def connectionLost(self, reason):
         """Called after an entire message is received.
 
-        This is called by the Twisted protocol classes after all data has 
-        been received. Parses the data that was received and issues callbacks 
+        This is called by the Twisted protocol classes after all data has
+        been received. Parses the data that was received and issues callbacks
         to listeners based on the content of the message.
 
         Args:
             reason: The reason why the connection was lost
-        """        
+        """
         try:
             data = json.loads(self.buf)
-            logging.debug('connectionLost: %s' % data)
             for msg in data:
                 if 'channel' in msg:
                     self.notify(msg['channel'], msg)
         except ValueError as e:
-            print 'Error parsing data: ', self.buf
-            print e
+            logging.error('Error parsing data: %s' % self.buf)
         self.buf = ''
 
     def notify(self, event, data):
